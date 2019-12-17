@@ -9,8 +9,8 @@ TRUE, FALSE, NOT, AND, OR, symbol = algebra.definition()
 def has_an_emtpy_clause(dimacs_cnf):
     """
     Check if a dimacs cnf has an empty clause.
-    :param dimacs_cnf:
-    :return:
+    :param dimacs_cnf: ( numpy.ndarray) The logical formula in dimacs_cnf format.
+    :return:(boolean)
     """
     for i in range(dimacs_cnf.shape[0]):
         if (dimacs_cnf[i] == 0).all():
@@ -21,12 +21,13 @@ def has_an_emtpy_clause(dimacs_cnf):
 def is_unit_clause(clause):
     """
     Check if a clause is unit.
-    :param clause:
-    :return:
+    :param clause: (numpy.ndarray) A clause in dmacs format
+    :return:- if it is a unit clause, return True, the index of the literal that make the clause unit and its value
+            - if not a unit clause, return False, None, None
     """
-    nb_non_zero = 0
-    literal_value = 0
-    literal_index = 0
+    nb_non_zero = 0    # number of non_zero literal in the clause (dmac format)
+    literal_index = 0  # the index of the literal that make the clause unit
+    literal_value = 0  # the value of the literal at index 'literal_index'
     for index in range(clause.shape[0]):
         if clause[index] != 0:
             nb_non_zero += 1
@@ -38,8 +39,9 @@ def is_unit_clause(clause):
 def has_a_unit_clause(dimacs_cnf):
     """
     Check if a dimacs cnf has a unit clause.
-    :param dimacs_cnf:
-    :return:
+    :param dimacs_cnf: (numpy.ndarray) The logic formula in dimacs format.
+    :return:- if yes, return True and the information about the unit clause(index and value)
+            - if not, return (False, None, None)
     """
     for clause_index in range(dimacs_cnf.shape[0]):
         is_unit, literal_index, literal_value = is_unit_clause(dimacs_cnf[clause_index])
@@ -51,7 +53,7 @@ def has_a_unit_clause(dimacs_cnf):
 def affect_cnf(dimacs_cnf, literal_index, literal_value):
     """
     Evaluate a dimacs cnf with a value of a literal.
-    :param dimacs_cnf:
+    :param dimacs_cnf: (numpy.ndarray) The logic formula in dimacs_cnf format.
     :param literal_index:
     :param literal_value:
     :return:
@@ -69,10 +71,10 @@ def affect_cnf(dimacs_cnf, literal_index, literal_value):
 def affect_model(model, lateral_index, lateral_value):
     """
     Add a value of a literal to the satisfied model.
-    :param model:
-    :param lateral_index:
-    :param lateral_value:
-    :return:
+    :param model: (numpy.ndarray) The model to be evaluated.
+    :param lateral_index: (int) The index of the literal to evaluate.
+    :param lateral_value: (int) The value of the literal to evaluate.
+    :return: (numpy.ndarray) The model after evaluation.
     """
     model[lateral_index] = lateral_value
     return model
@@ -81,10 +83,11 @@ def affect_model(model, lateral_index, lateral_value):
 def unit_propagate(dimacs_cnf, model):
     """
     Perform unit propagation of a dimacs cnf and update the satisfied model.
-    :param dimacs_cnf:
-    :param model:
-    :return:
+    :param dimacs_cnf:(numpy.ndarray) The logic formula in dimacs_cnf format.
+    :param model: (numpy.ndarray) The model of the logic formula's literals
+    :return: The logic formula and model after doing unit propagation.
     """
+
     while True:
         hasUnitClause, literal_index, literal_value = has_a_unit_clause(dimacs_cnf)
         if (not has_an_emtpy_clause(dimacs_cnf)) and hasUnitClause:
@@ -98,13 +101,14 @@ def unit_propagate(dimacs_cnf, model):
 def cnf_to_dimacs(cnf_formula):
     """
     Convert cnf formula to dimacs format.
-    :type cnf_formula: object
-    :param cnf_formula:
-    :return:
+    :param cnf_formula: (boolean.BooleanAlgebra()) The logic formula written in CNF form.
+    :return:(numpy.ndarray)The logic formula written in dimacs format.
     """
     columns = list(cnf_formula.symbols)
     columns.sort()
-    dimacs_cnf = pd.DataFrame(columns=columns)
+    dimacs_cnf = pd.DataFrame(columns=columns)  # use DataFrame to represent the dimacs_cnf since it is easy to
+    # append the dictionary
+
     if not cnf_formula.isliteral:
         for cnf_arg in cnf_formula.args:
             d = dict((key, 0) for key in columns)
@@ -138,13 +142,14 @@ def cnf_to_dimacs(cnf_formula):
 def dpll(dimacs_cnf, model):
     """
     Perform the algorithm of DPLL.
-    :param cnf_formula:
-    :param model:
-    :return:
+    :param cnf_formula:(numpy.ndarray) The logic formula in CNF form.
+    :param model: (numpy.ndarray) The model that make the formula satisfied.
+    :return: (boolean, numpy.ndarray ) The dimacs_cnf and model (for recursive algorithm)
     """
 
     # unit propagate
     dimacs_cnf, model = unit_propagate(dimacs_cnf, model)
+
     # check satisfaction
     if dimacs_cnf.shape[0] == 0:
         return (True, model)
@@ -163,6 +168,7 @@ def dpll(dimacs_cnf, model):
     is_sat, m = dpll(affect_cnf(dimacs_cnf, decided_lateral, 1), affect_model(model, decided_lateral, 1))
     if is_sat:
         return (is_sat, m)
+
     # let decided_lateral = -1, and recall dpll
     is_sat, m = dpll(affect_cnf(dimacs_cnf, decided_lateral, -1), affect_model(model, decided_lateral, 1))
     if is_sat:
@@ -172,33 +178,42 @@ def dpll(dimacs_cnf, model):
 def T(logic_formula):
     """
     Tseitin transformation of a logical formula.
-    :param logic_formula:
-    :param p_base: A string which is important to  creating new variable without coincide with the existing variables.
+    :param logic_formula: (boolean.BooleanAlgebra()) The logic formula to transform.
+
 
     """
     global counter, p_base
+    # p_base: (str) A string which is important to  creating new variable without coincide with the existing variables.
+    # counter: (int) The counter that increment when new variable is created.
+    
     if logic_formula.isliteral:
         return (logic_formula, TRUE)
     else:
         args = logic_formula.args
-        f1 = args[0]
-        operator = OR if logic_formula.operator == '|' else AND
-        f2 = operator(*args[1:len(args)]) if (len(args) > 2) else args[1]
+        operator = OR if logic_formula.operator == '|' else AND if logic_formula.operator == '&' else NOT
+        if operator == NOT:
+            f = args[0]
+            p_prime, c_prime = T(f)
+            return (NOT(p_prime), c_prime)
+        else:
+            f1 = args[0]
+            f2 = operator(*args[1:len(args)]) if (len(args) > 2) else args[1]
 
-        p = p_base.__str__() + str(counter)
-        p = algebra.Symbol(p)
-        counter = counter + 1
+            p = p_base.__str__() + str(counter)
+            p = algebra.Symbol(p)
+            counter = counter + 1
 
-        p1, c1 = T(f1)
-        p2, c2 = T(f2)
+            p1, c1 = T(f1)
+            p2, c2 = T(f2)
 
-        return (p, (AND(OR(NOT(p), p1, p2), OR(p, NOT(p1)), OR(p, NOT(p2)), c1, c2)).simplify()) if (
-                    operator == OR) else \
-            (p, (AND(OR(p, NOT(p1), NOT(p2)), OR(NOT(p), p1), OR(NOT(p), p2), c1, c2).simplify()))
+            return (p, (AND(OR(NOT(p), p1, p2), OR(p, NOT(p1)), OR(p, NOT(p2)), c1, c2)).simplify()) if (
+                        operator == OR) else \
+                (p, (AND(OR(p, NOT(p1), NOT(p2)), OR(NOT(p), p1), OR(NOT(p), p2), c1, c2).simplify()))
 
 
 if __name__ == "__main__":
     # read logical formula as string formula
+
     # logic_formula = '(x1)&(x2|!x3)&(x3|!x1)&!x2'
     # logic_formula = '(x1|!x1) & (x2|!x2)'
     # logic_formula = 'x1  & (x1|!x2) & (x1|!x4)'
@@ -206,17 +221,16 @@ if __name__ == "__main__":
     # logic_formula = 'x1 & !x1'
     # logic_formula = '(!a|b) & (!c|d) & (!e|!f) & (f|!e|!b) '
     # logic_formula = '(!a|b|(c&k))&(a|c|d)&(a|c|!d)&(a|!c|d)&(a|!c|!d)&(!b|!c|d)&(!a|b|!c)&(!a|!b|c)'
-    # logic_formula = '(p&q&r)'
+    # logic_formula = '!p'
+    # logic_formula = '!(p|u)'
     logic_formula = '(a|b)&(c|d)&(e|f)'
     print("Original logic formula: {}".format(logic_formula))
 
     # read the string formula to CNF format
-    algebra = boolean.BooleanAlgebra()
-    TRUE, FALSE, NOT, AND, OR, symbol = algebra.definition()
     logic_formula = algebra.parse(logic_formula)
     logic_formula = logic_formula.simplify()
 
-    # choose the mode for transforming a logical as cnf format
+    # check if the logic_formula is Tautology or Antilogy from the beginning
     if logic_formula == algebra.TRUE:
         is_sat = "Tautology"
         sat_model_dict = {}
@@ -224,9 +238,9 @@ if __name__ == "__main__":
         is_sat = "Antilogy"
         sat_model_dict = {}
     else:
-        is_T_mode = True
+        is_T_mode = True  # change to True to use Tseitin transformation.
         print("Using Tseitin Transformation: ", is_T_mode)
-        if is_T_mode:  # use Tseitin transformation
+        if is_T_mode:
             counter = 0
             p_base = next(iter(logic_formula.symbols))
             p, c = T(logic_formula)
@@ -243,6 +257,7 @@ if __name__ == "__main__":
         sat_model = np.zeros(len(cnf_formula.symbols))
         is_sat, sat_model = dpll(dimacs_cnf, sat_model) if len(dimacs_cnf) > 0 else \
             (("Antilogy", "Any value") if cnf_formula == algebra.FALSE else ("Tautology", "Any value"))
+
         # convert sat_model to a dictionary
         sat_model_dict = {}
         if sat_model is not None:
@@ -254,7 +269,6 @@ if __name__ == "__main__":
     print("Satisfaction: {}".format(is_sat))
     print("Satisfaction model: \n{}".format(sat_model_dict))
 
-# [TODO] do a benchemark between naive cnf and Tseitin transformation and naive has_unit_literal vs two watch lieral method
 
 
 
